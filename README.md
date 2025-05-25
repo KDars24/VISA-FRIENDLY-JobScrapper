@@ -183,4 +183,4 @@ cron.schedule('0 * * * *', () => {
 
 
 ## Scrape Job Statistics
-!"jobs stats.png"
+![Terminal Job Stats]("jobs stats.png")
