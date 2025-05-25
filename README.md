@@ -1,4 +1,4 @@
-# H1B Data Engineer Job Scraper
+# Visa-Friendly Data Engineer Intern Assignment
 
 A comprehensive automated system that scrapes "Data Engineer" job listings from Google Jobs using SerpAPI, filters them based on H1B sponsorship history, and stores the results in both CSV and database formats.
 
@@ -6,7 +6,7 @@ A comprehensive automated system that scrapes "Data Engineer" job listings from 
 
 This project addresses the challenge of finding visa-sponsored job opportunities by:
 - Scraping recent Data Engineer positions from Google Jobs
-- Cross-referencing against a database of 400+ H1B sponsor companies
+- Cross-referencing against a database of  H1B sponsor companies
 - Automating the process to run hourly
 - Storing results in both CSV and SQLite database formats
 
@@ -32,31 +32,14 @@ This project addresses the challenge of finding visa-sponsored job opportunities
 - **H1B Filtering**: Fuzzy matching against 400+ sponsor companies
 - **CSV Storage**: Structured data export with timestamps
 - **Automation**: Hourly job collection with duplicate prevention
-- **Database Storage**: CSV-based (SQLite integration needed)
-- **Deduplication**: Basic timestamp-based (hash-based needed)
+- **Database Storage**
+- **Deduplication**
 
 ### ❌ Missing Components
 - **LinkedIn/Indeed Scraping**: Only Google Jobs implemented
-- **Real-time Filtering**: 1-hour window not strictly enforced
 - **Advanced Automation**: Basic setInterval (Cron/Airflow recommended)
 
-## 📋 Requirements
 
-### Prerequisites
-- Node.js >= 16.0.0
-- npm or yarn
-- SerpAPI account (free tier: 100 searches/month)
-
-### Dependencies
-```json
-{
-  "axios": "^1.6.0",           // HTTP client for API calls
-  "csv-parser": "^3.0.0",      // CSV file parsing
-  "csv-writer": "^1.6.0",      // CSV file writing
-  "sqlite3": "^5.1.6",         // SQLite database (to be added)
-  "node-cron": "^3.0.3"        // Cron scheduling (to be added)
-}
-```
 
 ## 🛠️ Setup Instructions
 
@@ -95,22 +78,24 @@ npm start
 npm run dev
 ```
 
-## 📊 Data Structure
 
-### Input: H1B Companies CSV
-- **Source**: USCIS H1B disclosure data (last 3 years)
-- **Records**: 400+ unique employers
-- **Format**: Company names with legal entity suffixes
-
-### Output: Job Results CSV
-```csv
-Company Name,Job Title,Posting Time,Job Location,Job Type,Job Description,Work Setting,ATS Apply Link,Scraped At
-"Google LLC","Senior Data Engineer","2 days ago","Mountain View, CA","Full-time","[Full Description]","Hybrid","https://careers.google.com/...","2024-01-15T10:30:00.000Z"
-```
 
 ## 🔍 Technical Implementation
 
 ### Web Scraping Strategy
+
+The jobs are being taken from Serp API which returns Google Jobs on given query.
+From the json response of this api we extract following things:
+ - Job Title
+ - Company Name
+ - Job Type
+ - Location
+ - Description
+ - Work Setting
+ - Posting time
+ - ATS link if available
+
+
 ```javascript
 // Multi-page scraping with rate limiting
 for (let page = 0; page < maxPages; page++) {
@@ -122,6 +107,9 @@ for (let page = 0; page < maxPages; page++) {
 ```
 
 ### H1B Company Matching
+The script reads from a CSV file of companies with H-1B history (h1b_companies.csv)
+
+Matches are done using case-insensitive fuzzy matching and/or exact string comparison
 ```javascript
 // Fuzzy matching algorithm
 isH1BCompany(companyName) {
@@ -145,15 +133,10 @@ isH1BCompany(companyName) {
 - **Job Type**: Extraction from structured data and extensions
 - **ATS Links**: Prioritization of company career pages over job boards
 
-## 🎯 Assessment Requirements Status
+### Automation
 
-| Requirement | Status | Implementation |
-|-------------|--------|----------------|
-| **Step 1: Web Scraping** | ✅ Completed | Google Jobs via SerpAPI |
-| **Step 2: H1B Filtering** | ✅ Completed | 400+ companies, fuzzy matching |
-| **Step 3: Database Loading** | ⚠️ Partial | CSV implemented, SQLite needed |
-| **Step 4: Automation** | ⚠️ Partial | setInterval, needs Cron/Airflow |
-| **Step 5: Demo Video** | 📋 Pending | Script provided below |
+Currently the script uses setInterval() function but similar automation can be achieved with the help of node-cron.
+A cron job can be scheduled every hour which calls the scrapeJob function and update database.
 
 ## 🔧 Known Issues & Solutions
 
@@ -161,6 +144,7 @@ isH1BCompany(companyName) {
 **Problem**: Only Google Jobs implemented (not LinkedIn/Indeed)
 **Impact**: Medium - Google Jobs aggregates from multiple sources
 **Solution**: 
+ 
 ```javascript
 // Add multiple job board APIs
 const jobBoards = ['google_jobs', 'linkedin_jobs', 'indeed_jobs'];
@@ -169,26 +153,9 @@ for (const board of jobBoards) {
 }
 ```
 
-### Issue 2: Database Storage Missing
-**Problem**: Only CSV storage implemented
-**Impact**: High - Assessment requires SQL database
+### Issue 2: Different Names for same company
 **Solution**:
-```sql
--- Database schema needed
-CREATE TABLE jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_name TEXT NOT NULL,
-    job_title TEXT NOT NULL,
-    posting_time TEXT,
-    job_location TEXT,
-    job_type TEXT,
-    job_description TEXT,
-    work_setting TEXT,
-    ats_apply_link TEXT,
-    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    job_hash TEXT UNIQUE -- For deduplication
-);
-```
+Names like Google , Google LLC refer to the same company but are treated different leading to duplication and incorrect matching. To solve this issue a fuzzy matching function is implemented which matches company names from sponsership companies list after passing it through a cleaning function and normalizing the names.
 
 ### Issue 3: Basic Automation
 **Problem**: Using setInterval instead of robust scheduler
@@ -208,18 +175,12 @@ cron.schedule('0 * * * *', () => {
 **Mitigation**: 
 - Efficient pagination (3 pages max)
 - 1-second delays between requests
-- Error handling for rate limit exceeded
 
-## 📈 Performance Metrics
+### Issue 5: Duplication of Data
+**Problem**: Data from same job post can be inserted into DB for same company.
+**Impact**: We can miss some job post for same company or there will be a lot of duplicated data.
+**Mitigation**: Generated unique hashes using job title, company name , posting time and location
 
-### Current Performance
-- **Jobs per hour**: ~30 (3 pages × 10 jobs)
-- **H1B match rate**: ~15-20% (depends on market)
-- **API efficiency**: 3 calls per run
-- **Processing time**: ~5-10 seconds per run
 
-### Scalability Considerations
-- **Database indexing**: Needed for job_hash and company_name
-- **Caching**: H1B company set loaded once
-- **Concurrent requests**: Currently sequential (can parallelize)
-
+## Scrape Job Statistics
+!"jobs stats.png"
